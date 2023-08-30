@@ -1,5 +1,7 @@
 # 大狼群聊助手
 多功能QQ群聊助手和消息记录程序
+## 语言
+[English](https://github.com/CyanWolf275/WolfGroupAssistant/blob/main/README.md) 中文
 ## 依赖项
 该[Mirai Console](https://github.com/mamoe/mirai-console)插件需要以下依赖项
 ```groovy
