@@ -8,6 +8,7 @@
 implementation files('lib/mysql-connector-java-8.0.30.jar')
 implementation files('lib/spring-security-crypto-5.5.0.jar')
 implementation 'com.google.code.gson:gson:2.10.1'
+implementation group: 'org.json', name: 'json', version: '20230618'
 ```
 ## 作者
 小狼Cyanwolf
