@@ -17,4 +17,4 @@ Cyanwolf
 * Random fun facts generator (jrrp)
 * ChatGPT integration
 * Steam status api integration
-* *User status in KOOK server voice channel (work in progress)*
+* User status in KOOK server voice channel

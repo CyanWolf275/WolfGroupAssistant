@@ -18,4 +18,4 @@ implementation group: 'org.json', name: 'json', version: '20230618'
 * 今日人品（jrrp）——随机趣味群聊统计信息生成器
 * 可自定义的ChatGPT功能
 * 支持群聊的Steam用户状态查询
-* *KOOK服务器语音频道实时状态查询（制作中）*
+* KOOK服务器语音频道实时状态查询
