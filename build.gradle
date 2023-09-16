@@ -17,6 +17,7 @@ dependencies{
     implementation files('lib/mysql-connector-java-8.0.30.jar')
     implementation files('lib/spring-security-crypto-5.5.0.jar')
     implementation 'com.google.code.gson:gson:2.10.1'
+    implementation group: 'org.json', name: 'json', version: '20230618'
     //implementation 'com.theokanning.openai-gpt3-java:service:0.11.1'
     //implementation files('lib/jsoup-1.15.4.jar')
 }

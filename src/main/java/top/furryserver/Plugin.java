@@ -85,6 +85,7 @@ public final class Plugin extends JavaPlugin {
     private static String steamapi = "";
     private static long admin = 0L;
     private static final String[] STATUS_LIST = {"离线", "在线", "忙碌", "离开", "打盹", "正在寻找交易", "想玩游戏", "正在玩", "获取玩家信息失败", "获取玩家信息超时"};
+    private static String kook = null;
 
     private Plugin() {
         super(new JvmPluginDescriptionBuilder("top.furryserver.plugin", "1.0-SNAPSHOT")
@@ -110,6 +111,7 @@ public final class Plugin extends JavaPlugin {
                 gptGroupid.add(Long.parseLong(groupnum.trim()));
             steamapi = properties.getProperty("steam");
             admin = Long.parseLong(properties.getProperty("admin").trim());
+            kook = properties.getProperty("kook").trim();
         } catch (IOException | NumberFormatException e) {
             this.getLogger().error("加载配置文件出错");
             System.exit(-1);
@@ -1497,6 +1499,61 @@ public final class Plugin extends JavaPlugin {
                         throw new RuntimeException(e);
                     }
                 }
+            }else if(gptGroupid.contains(groupmsg.getGroup().getId()) && groupmsg.getMessage().contentToString().startsWith(".kook")){
+                int n = groupid.indexOf(groupmsg.getGroup().getId());
+                try {
+                    ResultSet rs = jrrpStmt.executeQuery("select kook from Groups where id=" + groupmsg.getGroup().getId());
+                    if(rs.next()){
+                        long kookid = rs.getLong(1);
+                        KookServer kookServer = new KookServer(kookid, kook);
+                        String msg = "";
+                        boolean useronline = false;
+                        if(Objects.isNull(kookServer.getChannels()))
+                            msg = "获取kook服务器信息出错";
+                        else{
+                            msg += kookServer.getName() + "\n";
+                            for(KookChannel kookChannel : kookServer.getChannels()){
+                                List<String> lst = kookChannel.getVoiceUsers();
+                                if(!Objects.isNull(lst) && lst.size() != 0){
+                                    useronline = true;
+                                    msg += kookChannel.getName() + "：" + list2String(lst) + "\n";
+                                }
+                            }
+                            if(useronline)
+                                msg = msg.substring(0, msg.length() - 1);
+                            else
+                                msg += "没有成员在语音频道中";
+                        }
+                        try{
+                            pslst[n].setString(1, sdf.format(new Date()));
+                            pslst[n].setInt(2, 0);
+                            pslst[n].setLong(3, 2784617026l);
+                            pslst[n].setString(4, msg);
+                            pslst[n].execute();
+                            pslst[n].clearParameters();
+                        }catch (SQLException e2){
+                            throw new RuntimeException(e2);
+                        }
+                        groupmsg.getGroup().sendMessage(msg);
+                    }else{
+                        try{
+                            pslst[n].setString(1, sdf.format(new Date()));
+                            pslst[n].setInt(2, 0);
+                            pslst[n].setLong(3, 2784617026l);
+                            pslst[n].setString(4, "群聊未添加kook服务器");
+                            pslst[n].execute();
+                            pslst[n].clearParameters();
+                        }catch (SQLException e2){
+                            throw new RuntimeException(e2);
+                        }
+                        groupmsg.getGroup().sendMessage("群聊未添加kook服务器");
+                    }
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+
             }else if(gptGroupid.contains(groupmsg.getGroup().getId()) && groupmsg.getMessage().contentToString().startsWith(".mc")){
                 int n = groupid.indexOf(groupmsg.getGroup().getId());
                 String[] mcargs = groupmsg.getMessage().contentToString().split("\\s+");
@@ -2343,5 +2400,15 @@ public final class Plugin extends JavaPlugin {
         if(result.trim().length() == 0)
             result = "没有在线玩家";
         return result.trim();
+    }
+    private static String list2String(List<String> list){
+        if(list.size() == 0)
+            return "";
+        else{
+            String result = "";
+            for(String str : list)
+                result += str + "，";
+            return result.substring(0, result.length() - 1);
+        }
     }
 }
