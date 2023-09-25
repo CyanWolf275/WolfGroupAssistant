@@ -26,6 +26,8 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.Date;
 import java.util.concurrent.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class Plugin extends JavaPlugin {
     public static final Plugin INSTANCE = new Plugin();
@@ -273,7 +275,7 @@ public final class Plugin extends JavaPlugin {
                     try {
                         File js = new File(chatdir + "image.txt");
                         FileOutputStream fs = new FileOutputStream(js);
-                        fs.write(q.msg.getBytes("UTF-8"));
+                        fs.write(q.msg.getBytes(StandardCharsets.UTF_8));
                         fs.close();
                         String response = "";
                         Process process = Runtime.getRuntime().exec("cmd /c cd " + chatdir + " && python image.py");
@@ -320,7 +322,7 @@ public final class Plugin extends JavaPlugin {
                                 String responsetime = sdf.format(new Date());
                                 pslst[q.n].setString(1, responsetime);
                                 pslst[q.n].setInt(2, 0);
-                                pslst[q.n].setLong(3, 2784617026l);
+                                pslst[q.n].setLong(3, 2784617026L);
                                 pslst[q.n].setString(4, "获取回答时API发生错误");
                                 pslst[q.n].execute();
                                 pslst[q.n].clearParameters();
@@ -331,7 +333,7 @@ public final class Plugin extends JavaPlugin {
                             String responsetime = sdf.format(new Date());
                             pslst[q.n].setString(1, responsetime);
                             pslst[q.n].setInt(2, 0);
-                            pslst[q.n].setLong(3, 2784617026l);
+                            pslst[q.n].setLong(3, 2784617026L);
                             pslst[q.n].setString(4, "获取回答超时");
                             pslst[q.n].execute();
                             pslst[q.n].clearParameters();
@@ -367,7 +369,7 @@ public final class Plugin extends JavaPlugin {
                         if (process.waitFor(60, TimeUnit.SECONDS)) {
                             if (process.exitValue() == 0) {
                                 File file = new File(chatdir + "varimageresponse.txt");
-                                BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), "UTF-8"));
+                                BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8));
                                 response = reader.readLine();
                                 String responsetime = sdf.format(new Date());
                                 File tokens = new File(chatdir + "varimagetokens.txt");
@@ -1774,7 +1776,7 @@ public final class Plugin extends JavaPlugin {
                     }
                 } else if (num < 65) {
                     long senderId = groupmsg.getSender().getId();
-                    if (num < 40) {
+                    if (num < 30) {
                         try {
                             rs = jrrpStmt.executeQuery("SELECT content FROM `" + groupnum + "` WHERE time >= (NOW() - INTERVAL 720 HOUR) AND type=0");
                             int count = 0;
@@ -1791,6 +1793,46 @@ public final class Plugin extends JavaPlugin {
                                 senderlength += rs.getString(1).length();
                             }
                             chain = MessageUtils.newChain(new PlainText("近一个月，群友们的消息平均长度为" + String.format("%.1f", ((double) length) / ((double) count)) + "，而" + groupmsg.getSender().getNick() + "的消息平均长度为" + String.format("%.1f", ((double) senderlength) / ((double) sendercount)) + "。"));
+                        } catch (SQLException e) {
+                            throw new RuntimeException(e);
+                        }
+                    } else if(num < 40){
+                        try {
+                            rs = jrrpStmt.executeQuery("select content from `" + groupnum + "` where time >= (NOW() - INTERVAL 720 HOUR) and type=0 and sender=" + senderId + " and content regexp \"@[0-9]{5,11}\"");
+                            Map<Long, Integer> count = new HashMap<Long, Integer>();
+                            Pattern pattern = Pattern.compile("@[0-9]{5,11}");
+                            while(rs.next()){
+                                Matcher matcher = pattern.matcher(rs.getString(1));
+                                if(matcher.find()){
+                                    long person = Long.parseLong(matcher.group().substring(1));
+                                    if(person != 2784617026L){
+                                        if(count.containsKey(person))
+                                            count.replace(person, count.get(person) + 1);
+                                        else
+                                            count.put(person, 1);
+                                    }
+                                }
+                            }
+                            String outmsg = "";
+                            if(count.isEmpty()){
+                                outmsg = "近一个月内，" + groupmsg.getSender().getNick() + "没有@过群用户。";
+                            }else{
+                                long maxid = 0;
+                                int maxcount = 0;
+                                for(Long key : count.keySet()) {
+                                    if (count.get(key) >= maxcount) {
+                                        maxid = key;
+                                        maxcount = count.get(key);
+                                    }
+                                }
+                                rs = jrrpStmt.executeQuery("select name from `" + groupnum + "Members` where id=" + maxid);
+                                if(rs.next()){
+                                    outmsg = "近一个月内，" + groupmsg.getSender().getNick() + "@次数最多的群用户是" + rs.getString(1) + "，共@了" + maxcount + "次。";
+                                }else{
+                                    outmsg = "获取jrrp信息出错，jrrp代码" + num + "。";
+                                }
+                            }
+                            chain = MessageUtils.newChain(new PlainText(outmsg));
                         } catch (SQLException e) {
                             throw new RuntimeException(e);
                         }
