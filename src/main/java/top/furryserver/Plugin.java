@@ -2126,7 +2126,7 @@ public final class Plugin extends JavaPlugin {
                             grouplst += groups[i].getId() + ",";
                         rs2.close();
                     }
-                    if(grouplst.length() > 0)
+                    if(!grouplst.isEmpty())
                         grouplst = grouplst.substring(0, grouplst.length() - 1);
                     chatStmt.execute("INSERT INTO all_members_groups (id,groups) VALUES(" + id + ",\'" + grouplst + "\') ON DUPLICATE KEY UPDATE groups=\'" + grouplst + "\'");
                 } catch (SQLException e) {
@@ -2195,7 +2195,7 @@ public final class Plugin extends JavaPlugin {
         con.setRequestMethod("GET");
         con.connect();
         if (con.getResponseCode() == 200) {
-            BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream(), "UTF-8"));
+            BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream(), StandardCharsets.UTF_8));
             String inputLine;
             StringBuffer response = new StringBuffer();
             while ((inputLine = in.readLine()) != null) {
@@ -2227,7 +2227,7 @@ public final class Plugin extends JavaPlugin {
         File js = new File(chatdir + "chatchain.txt");
         FileOutputStream fs = new FileOutputStream(js);
         chatMessages.add(new ChatMessage("user", event.getSender().getNick() + ": " + msg));
-        fs.write(chatListString(chatMessages).getBytes("UTF-8"));
+        fs.write(chatListString(chatMessages).getBytes(StandardCharsets.UTF_8));
         chatMessages.remove(chatMessages.size() - 1);
         fs.close();
         String response = "";
@@ -2276,7 +2276,7 @@ public final class Plugin extends JavaPlugin {
         templst.add(new ChatMessage("user", msg));
         File js = new File(chatdir + "querytemp.txt");
         FileOutputStream fs = new FileOutputStream(js);
-        fs.write(chatListString(templst).getBytes("UTF-8"));
+        fs.write(chatListString(templst).getBytes(StandardCharsets.UTF_8));
         fs.close();
         String response = "";
         Process process = Runtime.getRuntime().exec("cmd /c cd " + chatdir + " && python query.py");
@@ -2439,12 +2439,12 @@ public final class Plugin extends JavaPlugin {
                 i--;
             }
         }
-        if(result.trim().length() == 0)
+        if(result.trim().isEmpty())
             result = "没有在线玩家";
         return result.trim();
     }
     private static String list2String(List<String> list){
-        if(list.size() == 0)
+        if(list.isEmpty())
             return "";
         else{
             String result = "";
