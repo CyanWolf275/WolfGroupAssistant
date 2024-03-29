@@ -287,7 +287,7 @@ public final class Plugin extends JavaPlugin {
                     try {
                         File js = new File(chatdir + "image.txt");
                         FileOutputStream fs = new FileOutputStream(js);
-                        fs.write(q.msg.getBytes("UTF-8"));
+                        fs.write(q.msg.getBytes(StandardCharsets.UTF_8));
                         fs.close();
                         String response = "";
                         Process process = Runtime.getRuntime().exec("cmd /c cd " + chatdir + " && python image.py");
@@ -334,7 +334,7 @@ public final class Plugin extends JavaPlugin {
                                 String responsetime = sdf.format(new Date());
                                 pslst[q.n].setString(1, responsetime);
                                 pslst[q.n].setInt(2, 0);
-                                pslst[q.n].setLong(3, 2784617026l);
+                                pslst[q.n].setLong(3, 2784617026L);
                                 pslst[q.n].setString(4, "获取回答时API发生错误");
                                 pslst[q.n].execute();
                                 pslst[q.n].clearParameters();
@@ -345,7 +345,7 @@ public final class Plugin extends JavaPlugin {
                             String responsetime = sdf.format(new Date());
                             pslst[q.n].setString(1, responsetime);
                             pslst[q.n].setInt(2, 0);
-                            pslst[q.n].setLong(3, 2784617026l);
+                            pslst[q.n].setLong(3, 2784617026L);
                             pslst[q.n].setString(4, "获取回答超时");
                             pslst[q.n].execute();
                             pslst[q.n].clearParameters();
@@ -1834,7 +1834,7 @@ public final class Plugin extends JavaPlugin {
                     }
                 } else if (num < 65) {
                     long senderId = groupmsg.getSender().getId();
-                    if (num < 40) {
+                    if (num < 30) {
                         try {
                             rs = jrrpStmt.executeQuery("SELECT content FROM `" + groupnum + "` WHERE time >= (NOW() - INTERVAL 720 HOUR) AND type=0");
                             int count = 0;
@@ -1851,6 +1851,46 @@ public final class Plugin extends JavaPlugin {
                                 senderlength += rs.getString(1).length();
                             }
                             chain = MessageUtils.newChain(new PlainText("近一个月，群友们的消息平均长度为" + String.format("%.1f", ((double) length) / ((double) count)) + "，而" + groupmsg.getSender().getNick() + "的消息平均长度为" + String.format("%.1f", ((double) senderlength) / ((double) sendercount)) + "。"));
+                        } catch (SQLException e) {
+                            throw new RuntimeException(e);
+                        }
+                    } else if(num < 40){
+                        try {
+                            rs = jrrpStmt.executeQuery("select content from `" + groupnum + "` where time >= (NOW() - INTERVAL 720 HOUR) and type=0 and sender=" + senderId + " and content regexp \"@[0-9]{5,11}\"");
+                            Map<Long, Integer> count = new HashMap<Long, Integer>();
+                            Pattern pattern = Pattern.compile("@[0-9]{5,11}");
+                            while(rs.next()){
+                                Matcher matcher = pattern.matcher(rs.getString(1));
+                                if(matcher.find()){
+                                    long person = Long.parseLong(matcher.group().substring(1));
+                                    if(person != 2784617026L){
+                                        if(count.containsKey(person))
+                                            count.replace(person, count.get(person) + 1);
+                                        else
+                                            count.put(person, 1);
+                                    }
+                                }
+                            }
+                            String outmsg = "";
+                            if(count.isEmpty()){
+                                outmsg = "近一个月内，" + groupmsg.getSender().getNick() + "没有@过群用户。";
+                            }else{
+                                long maxid = 0;
+                                int maxcount = 0;
+                                for(Long key : count.keySet()) {
+                                    if (count.get(key) >= maxcount) {
+                                        maxid = key;
+                                        maxcount = count.get(key);
+                                    }
+                                }
+                                rs = jrrpStmt.executeQuery("select name from `" + groupnum + "Members` where id=" + maxid);
+                                if(rs.next()){
+                                    outmsg = "近一个月内，" + groupmsg.getSender().getNick() + "@次数最多的群用户是" + rs.getString(1) + "，共@了" + maxcount + "次。";
+                                }else{
+                                    outmsg = "获取jrrp信息出错，jrrp代码" + num + "。";
+                                }
+                            }
+                            chain = MessageUtils.newChain(new PlainText(outmsg));
                         } catch (SQLException e) {
                             throw new RuntimeException(e);
                         }
@@ -2144,7 +2184,7 @@ public final class Plugin extends JavaPlugin {
                             grouplst += groups[i].getId() + ",";
                         rs2.close();
                     }
-                    if(grouplst.length() > 0)
+                    if(!grouplst.isEmpty())
                         grouplst = grouplst.substring(0, grouplst.length() - 1);
                     chatStmt.execute("INSERT INTO all_members_groups (id,groups) VALUES(" + id + ",\'" + grouplst + "\') ON DUPLICATE KEY UPDATE groups=\'" + grouplst + "\'");
                 } catch (SQLException e) {
@@ -2213,7 +2253,7 @@ public final class Plugin extends JavaPlugin {
         con.setRequestMethod("GET");
         con.connect();
         if (con.getResponseCode() == 200) {
-            BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream(), "UTF-8"));
+            BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream(), StandardCharsets.UTF_8));
             String inputLine;
             StringBuffer response = new StringBuffer();
             while ((inputLine = in.readLine()) != null) {
@@ -2245,7 +2285,7 @@ public final class Plugin extends JavaPlugin {
         File js = new File(chatdir + "chatchain.txt");
         FileOutputStream fs = new FileOutputStream(js);
         chatMessages.add(new ChatMessage("user", event.getSender().getNick() + ": " + msg));
-        fs.write(chatListString(chatMessages).getBytes("UTF-8"));
+        fs.write(chatListString(chatMessages).getBytes(StandardCharsets.UTF_8));
         chatMessages.remove(chatMessages.size() - 1);
         fs.close();
         String response = "";
@@ -2294,7 +2334,7 @@ public final class Plugin extends JavaPlugin {
         templst.add(new ChatMessage("user", msg));
         File js = new File(chatdir + "querytemp.txt");
         FileOutputStream fs = new FileOutputStream(js);
-        fs.write(chatListString(templst).getBytes("UTF-8"));
+        fs.write(chatListString(templst).getBytes(StandardCharsets.UTF_8));
         fs.close();
         String response = "";
         Process process = Runtime.getRuntime().exec("cmd /c cd " + chatdir + " && python query.py");
@@ -2457,12 +2497,12 @@ public final class Plugin extends JavaPlugin {
                 i--;
             }
         }
-        if(result.trim().length() == 0)
+        if(result.trim().isEmpty())
             result = "没有在线玩家";
         return result.trim();
     }
     private static String list2String(List<String> list){
-        if(list.size() == 0)
+        if(list.isEmpty())
             return "";
         else{
             String result = "";
