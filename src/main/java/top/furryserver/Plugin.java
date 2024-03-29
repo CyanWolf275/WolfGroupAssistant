@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
+import java.net.ProtocolException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -26,6 +27,8 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.Date;
 import java.util.concurrent.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class Plugin extends JavaPlugin {
     public static final Plugin INSTANCE = new Plugin();
@@ -86,6 +89,9 @@ public final class Plugin extends JavaPlugin {
     private static long admin = 0L;
     private static final String[] STATUS_LIST = {"离线", "在线", "忙碌", "离开", "打盹", "正在寻找交易", "想玩游戏", "正在玩", "获取玩家信息失败", "获取玩家信息超时"};
     private static String kook = null;
+    private static ImgGPT imgGPT;
+    private static Pattern dice = Pattern.compile("r(\\d*)d(\\d+)");
+    private static boolean diceOn = true;
 
     private Plugin() {
         super(new JvmPluginDescriptionBuilder("top.furryserver.plugin", "1.0-SNAPSHOT")
@@ -133,6 +139,7 @@ public final class Plugin extends JavaPlugin {
         gptConn = new Connection[len];
         gptStmt = new Statement[len];
         bCryptPasswordEncoder = new BCryptPasswordEncoder();
+        //imgGPT = new ImgGPT();
         try {
             for(int i=0;i<groupid.size();i++){
                 conn[i] = DriverManager.getConnection(properties.getProperty("db.url") + groupid.get(i) + "?useSSL=false&autoreconnect=true&autoreconnectforpools=true&failOverReadOnly=false", properties.getProperty("db.username.server"), properties.getProperty("db.password.server"));
@@ -175,6 +182,13 @@ public final class Plugin extends JavaPlugin {
         //queryQueue = new ArrayBlockingQueue<>(5);
         bingQueue = new ArrayBlockingQueue<>(5);
         steamQueue = new ArrayBlockingQueue<>(10);
+        /*
+        try {
+            imgGPT.start();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+         */
         chat = new Thread(new Runnable() {
             @Override
             public void run() {
@@ -202,7 +216,7 @@ public final class Plugin extends JavaPlugin {
                         fs.write(message.getBytes("UTF-8"));
                         fs.close();
                         String response = "";
-                        Process process = Runtime.getRuntime().exec("cmd /c cd " + chatdir + " && python chat.py");
+                        Process process = Runtime.getRuntime().exec("cmd /c cd " + chatdir + " && python chat.py " + q.group.getId());
                         if (process.waitFor(90, TimeUnit.SECONDS)) {
                             if (process.exitValue() == 0) {
                                 File file = new File(chatdir + "response.txt");
@@ -358,19 +372,29 @@ public final class Plugin extends JavaPlugin {
                         throw new RuntimeException(e);
                     }
                     try {
-                        File js = new File(chatdir + "image");
+                        File js = new File(chatdir + q.type);
                         FileOutputStream fs = new FileOutputStream(js);
                         fs.write(q.data);
                         fs.close();
+                        File js2 = new File(chatdir + "chat.txt");
+                        FileOutputStream fs2 = new FileOutputStream(js2);
+                        String message = "";
+                        if(q.sender == 3271285330l)
+                            message += "坦奇: " + q.msg;
+                        else
+                            message += q.name + ": " + q.msg;
+                        fs2.write(message.getBytes("UTF-8"));
+                        fs2.close();
                         String response = "";
-                        Process process = Runtime.getRuntime().exec("cmd /c cd " + chatdir + " && python varimage.py");
-                        if (process.waitFor(60, TimeUnit.SECONDS)) {
+                        Process process = Runtime.getRuntime().exec("cmd /c cd " + chatdir + " && python img.py " + q.type);
+                        if (process.waitFor(90, TimeUnit.SECONDS)) {
                             if (process.exitValue() == 0) {
-                                File file = new File(chatdir + "varimageresponse.txt");
-                                BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), "UTF-8"));
-                                response = reader.readLine();
+                                File file = new File(chatdir + "response.txt");
+                                BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), "GBK"));
+                                while (reader.ready())
+                                    response += reader.readLine();
                                 String responsetime = sdf.format(new Date());
-                                File tokens = new File(chatdir + "varimagetokens.txt");
+                                File tokens = new File(chatdir + "tokens.txt");
                                 BufferedReader tokenreader = new BufferedReader(new InputStreamReader(new FileInputStream(tokens)));
                                 int numtoken = Integer.parseInt(tokenreader.readLine());
                                 tokenreader.close();
@@ -381,27 +405,13 @@ public final class Plugin extends JavaPlugin {
                                 pslst[q.n].execute();
                                 pslst[q.n].clearParameters();
                                 chatStmtlst[q.n].setLong(1, q.sender);
-                                chatStmtlst[q.n].setString(2, q.msg + "." + q.type);
+                                chatStmtlst[q.n].setString(2, q.msg);
                                 chatStmtlst[q.n].setString(3, response);
                                 chatStmtlst[q.n].setString(4, responsetime);
                                 chatStmtlst[q.n].setInt(5, numtoken);
                                 chatStmtlst[q.n].execute();
                                 chatStmtlst[q.n].clearParameters();
-                                String imgname = response.substring(response.indexOf("/img-") + 1, response.indexOf("?"));
-                                File imgfile = new File(dir + "ai-img" + File.separator + imgname);
-                                URL imglink = new URL(response);
-                                HttpURLConnection httpconn = (HttpURLConnection) imglink.openConnection();
-                                httpconn.setRequestMethod("GET");
-                                InputStream is = httpconn.getInputStream();
-                                byte[] data = readInputStream(is);
-                                FileOutputStream outstream = new FileOutputStream(imgfile);
-                                outstream.write(data);
-                                outstream.close();
-                                httpconn.disconnect();
-                                ExternalResource externalResource = ExternalResource.create(imgfile);
-                                MessageChain chain = MessageUtils.newChain(q.group.uploadImage(externalResource));
-                                q.group.sendMessage(chain);
-                                externalResource.close();
+                                q.group.sendMessage(response);
                                 reader.close();
                             } else {
                                 String responsetime = sdf.format(new Date());
@@ -424,12 +434,18 @@ public final class Plugin extends JavaPlugin {
                             pslst[q.n].clearParameters();
                             q.group.sendMessage("获取回答超时");
                         }
-                    } catch (IOException | InterruptedException e) {
-                        q.group.sendMessage("获取回答时发生IO错误");
-                        throw new RuntimeException(e);
-                    } catch (SQLException e) {
-                        q.group.sendMessage("获取回答时发生SQL错误");
-                        throw new RuntimeException(e);
+                    } catch (ProtocolException ex) {
+                        throw new RuntimeException(ex);
+                    } catch (MalformedURLException ex) {
+                        throw new RuntimeException(ex);
+                    } catch (SQLException ex) {
+                        throw new RuntimeException(ex);
+                    } catch (FileNotFoundException ex) {
+                        throw new RuntimeException(ex);
+                    } catch (IOException ex) {
+                        throw new RuntimeException(ex);
+                    } catch (InterruptedException ex) {
+                        throw new RuntimeException(ex);
                     }
                 }
             }
@@ -742,7 +758,6 @@ public final class Plugin extends JavaPlugin {
             }
         });
         Listener friendMessage = GlobalEventChannel.INSTANCE.subscribeAlways(FriendMessageEvent.class, friendmsg -> {
-            //TODO
             long id = friendmsg.getSender().getId();
             String msg = friendmsg.getMessage().contentToString();
             Friend friend = friendmsg.getFriend();
@@ -1290,16 +1305,61 @@ public final class Plugin extends JavaPlugin {
                     groupmsg.getSender().sendMessage("创建用户时出错");
                     throw new RuntimeException(e);
                 }
+            } else if(gptGroupid.contains(groupmsg.getGroup().getId()) && groupmsgContent.startsWith(".r")){
+                int n = groupid.indexOf(groupmsg.getGroup().getId());
+                String resultnum = "";
+                if(groupmsgContent.startsWith(".r开")){
+                    diceOn = true;
+                    resultnum = "已打开骰子";
+                }else if(groupmsgContent.startsWith(".r关")){
+                    diceOn = false;
+                    resultnum = "已关闭骰子";
+                }else if(diceOn){
+                    Matcher m = dice.matcher(groupmsgContent.substring(1).trim());
+                    if(m.matches()) {
+                        try {
+                            if (m.group(1).isEmpty()) {
+                                resultnum = groupmsgContent.substring(1) + "=" + ((int) (Math.random() * Integer.parseInt(m.group(2))) + 1);
+                            } else {
+                                resultnum = groupmsgContent.substring(1) + "=";
+                                int num = 0;
+                                for (int i = 0; i < Integer.parseInt(m.group(1)); i++) {
+                                    int rand = (int) (Math.random() * Integer.parseInt(m.group(2))) + 1;
+                                    num += rand;
+                                    resultnum += rand + "+";
+                                }
+                                resultnum = resultnum.substring(0, resultnum.length() - 1) + "=" + num;
+                            }
+                        } catch (NumberFormatException e) {
+                            resultnum = "数字格式不正确";
+                        }
+                    }
+                }
+                if(!resultnum.isEmpty()){
+                    try{
+                        pslst[n].setString(1, sdf.format(new Date()));
+                        pslst[n].setInt(2, 0);
+                        pslst[n].setLong(3, 2784617026l);
+                        pslst[n].setString(4, resultnum);
+                        pslst[n].execute();
+                        pslst[n].clearParameters();
+                    }catch (SQLException e2){
+                        throw new RuntimeException(e2);
+                    }
+                    groupmsg.getGroup().sendMessage(MessageUtils.newChain(new PlainText(resultnum)));
+                }
             } else if (gptGroupid.contains(groupmsg.getGroup().getId()) && (groupmsgContent.startsWith("@2784617026") || groupmsgContent.startsWith("@大狼"))) {
                 String question = "";
                 String[] options = groupmsg.getMessage().contentToString().split("\\s+");
                 boolean includeImage = false;
                 Image imgmsg = null;
+                String plainquestion = "";
                 for(SingleMessage msg : groupmsg.getMessage())
                     if(msg instanceof Image){
                         includeImage = true;
                         imgmsg = (Image) msg;
-                    }
+                    }else if(msg instanceof PlainText)
+                        plainquestion = ((PlainText)msg).contentToString().split("\\s+")[1];
                 String type = "";
                 byte[] data = null;
                 String filename = "";
@@ -1334,9 +1394,9 @@ public final class Plugin extends JavaPlugin {
                         question = groupmsg.getMessage().contentToString().substring(4);
                 }
                 if(includeImage){
-                    if(varimgQueue.size() < 3){
+                    if(varimgQueue.size() < 5){
                         try {
-                            varimgQueue.put(new Question(data, groupmsg.getGroup(), groupmsg.getSender().getId(), groupmsg.getSender().getNick(), groupid.indexOf(groupmsg.getGroup().getId()), filename, type));
+                            varimgQueue.put(new Question(data, groupmsg.getGroup(), groupmsg.getSender().getId(), groupmsg.getSender().getNick(), groupid.indexOf(groupmsg.getGroup().getId()), plainquestion, filename + "." + type));
                         } catch (InterruptedException e) {
                             throw new RuntimeException(e);
                         }
@@ -2057,7 +2117,7 @@ public final class Plugin extends JavaPlugin {
                         try {
                             pslst[idx].setString(1, sdf.format(new Date()));
                             pslst[idx].setInt(2, 0);
-                            pslst[idx].setLong(3, 2784617026l);//TODO
+                            pslst[idx].setLong(3, 2784617026l);
                             pslst[idx].setString(4, chain.contentToString());
                             pslst[idx].execute();
                             pslst[idx].clearParameters();

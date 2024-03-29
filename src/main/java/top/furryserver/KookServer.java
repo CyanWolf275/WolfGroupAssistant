@@ -19,6 +19,7 @@ public class KookServer {
 
     public KookServer(long id, String kook) throws IOException {
         this.id = id;
+        this.kook = kook;
         URL url = new URL("https://www.kookapp.cn/api/v3/guild/view?guild_id=" + id);
         HttpsURLConnection urlConnection = (HttpsURLConnection) url.openConnection();
         urlConnection.setRequestMethod("GET");
@@ -38,7 +39,6 @@ public class KookServer {
             JSONObject jsonObject = new JSONObject(content);
             name = jsonObject.getJSONObject("data").getString("name");
         }
-        this.kook = kook;
         channels = new ArrayList<KookChannel>();
         url = new URL("https://www.kookapp.cn/api/v3/channel/list?guild_id=" + id);
         urlConnection = (HttpsURLConnection) url.openConnection();
